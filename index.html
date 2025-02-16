@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Real-Time Speech Transcription</title>
     <style>
-      /* Global Styles */
       * {
         box-sizing: border-box;
         margin: 0;
@@ -36,7 +35,6 @@
         color: #2c3e50;
         text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
       }
-      /* Transcription Box */
       #transcript {
         margin-top: 20px;
         background: #fff;
@@ -50,7 +48,6 @@
         line-height: 1.5;
         box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.05);
       }
-      /* Buttons */
       .btn {
         background: #3498db;
         color: #fff;
@@ -96,7 +93,6 @@
     </div>
 
     <script>
-      // Check for browser support of SpeechRecognition
       window.SpeechRecognition =
         window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!window.SpeechRecognition) {
@@ -105,11 +101,9 @@
         );
       }
 
-      // Global variables to store the final and interim transcripts
       let finalTranscript = "";
       let interimTranscript = "";
 
-      // Get UI element references
       const startBtn = document.getElementById("start-btn");
       const stopBtn = document.getElementById("stop-btn");
       const fixBtn = document.getElementById("fix-btn");
@@ -118,7 +112,6 @@
       const fixCopyBtn = document.getElementById("fix-copy-btn");
       const transcriptDiv = document.getElementById("transcript");
 
-      // Function to disable all transcription-related buttons
       function disableButtons() {
         startBtn.disabled = true;
         stopBtn.disabled = true;
@@ -128,7 +121,6 @@
         fixCopyBtn.disabled = true;
       }
 
-      // Check microphone permissions only once on page load
       if (navigator.permissions) {
         navigator.permissions
           .query({ name: "microphone" })
@@ -143,7 +135,6 @@
             }
           });
       } else {
-        // Fallback: request microphone access once
         navigator.mediaDevices
           .getUserMedia({ audio: true })
           .then((stream) => {
@@ -159,29 +150,21 @@
           });
       }
 
-      // Create a single SpeechRecognition instance
       const recognition = new window.SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = "en-US";
 
-      // Basic formatting: Capitalize sentences, fix spacing/punctuation.
       function fixBasicFormatting(text) {
         text = text.trim();
-        // Replace standalone 'i' with 'I'
         text = text.replace(/\bi\b/g, "I");
-
-        // Split text into sentences (keeping punctuation)
         let sentences = text.match(/[^.!?]+[.!?]*/g);
         if (!sentences) return text;
         let fixedSentences = sentences.map((sentence) => {
           sentence = sentence.trim();
           if (sentence.length === 0) return "";
-          // Capitalize first letter
           sentence = sentence.charAt(0).toUpperCase() + sentence.slice(1);
-          // Remove extra spaces before punctuation
           sentence = sentence.replace(/\s+([.!?])/g, "$1");
-          // Ensure sentence ends with punctuation
           if (!/[.!?]$/.test(sentence)) {
             sentence += ".";
           }
@@ -190,7 +173,6 @@
         return fixedSentences.join(" ").replace(/\s+/g, " ");
       }
 
-      // Enhanced smart fix: build on basic formatting and correct common misrecognitions.
       function smartFixText(text) {
         text = fixBasicFormatting(text);
         const corrections = {
@@ -209,7 +191,6 @@
           const regex = new RegExp(pattern, "gi");
           text = text.replace(regex, corrections[pattern]);
         }
-        // Adjust punctuation for interrogative sentences
         let sentences = text.match(/[^.!?]+[.!?]*/g);
         if (sentences) {
           sentences = sentences.map((sentence) => {
@@ -232,7 +213,6 @@
         return text;
       }
 
-      // Update transcript display and enable/disable buttons based on text availability.
       function updateDisplay() {
         transcriptDiv.innerHTML = finalTranscript;
         const hasText = finalTranscript.trim().length > 0;
@@ -242,18 +222,21 @@
         fixCopyBtn.disabled = !hasText;
       }
 
-      // When new results arrive from speech recognition:
       recognition.addEventListener("result", (event) => {
-        interimTranscript = ""; // reset interim text
+        interimTranscript = "";
+
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcriptPiece = event.results[i][0].transcript;
           if (event.results[i].isFinal) {
-            finalTranscript += transcriptPiece.trim() + ". ";
+            let trimmed = transcriptPiece.trim();
+            if (!/[.!?]$/.test(trimmed)) {
+              trimmed += ".";
+            }
+            finalTranscript += trimmed + " ";
           } else {
             interimTranscript += transcriptPiece;
           }
         }
-        // Show final transcript plus any live interim text in a lighter color.
         transcriptDiv.innerHTML =
           finalTranscript +
           '<span style="color: #999;">' +
@@ -262,29 +245,28 @@
         transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
       });
 
-      // When recognition ends (for any reason), update the display.
       recognition.addEventListener("end", () => {
         updateDisplay();
       });
 
-      // Start transcription
       startBtn.addEventListener("click", () => {
         recognition.start();
         startBtn.disabled = true;
         stopBtn.disabled = false;
-        // Disable fix, clear, copy, and fix-copy buttons during active transcription.
         fixBtn.disabled = true;
         clearBtn.disabled = true;
         copyBtn.disabled = true;
         fixCopyBtn.disabled = true;
       });
 
-      // Stop transcription & flush any interim text.
       stopBtn.addEventListener("click", () => {
         recognition.stop();
-        // If any interim text remains, flush it into the final transcript.
         if (interimTranscript.trim().length > 0) {
-          finalTranscript += interimTranscript.trim() + ". ";
+          const lastInterval = interimTranscript.trim();
+          if (!finalTranscript.endsWith(lastInterval + " ") &&
+              !finalTranscript.endsWith(lastInterval + ". ")) {
+            finalTranscript += lastInterval + ". ";
+          }
           interimTranscript = "";
         }
         startBtn.disabled = false;
@@ -292,19 +274,16 @@
         updateDisplay();
       });
 
-      // Fix text using the smart fix function.
       fixBtn.addEventListener("click", () => {
         finalTranscript = smartFixText(finalTranscript);
         updateDisplay();
       });
 
-      // Clear transcript.
       clearBtn.addEventListener("click", () => {
         finalTranscript = "";
         updateDisplay();
       });
 
-      // Copy transcript to clipboard.
       copyBtn.addEventListener("click", () => {
         if (finalTranscript.trim().length > 0) {
           navigator.clipboard
@@ -318,7 +297,6 @@
         }
       });
 
-      // Fix text and copy the fixed transcript.
       fixCopyBtn.addEventListener("click", () => {
         if (finalTranscript.trim().length > 0) {
           finalTranscript = smartFixText(finalTranscript);
@@ -334,7 +312,6 @@
         }
       });
 
-      // Handle potential recognition errors (e.g. permission issues).
       recognition.addEventListener("error", (event) => {
         console.error("Speech recognition error: " + event.error);
         if (
